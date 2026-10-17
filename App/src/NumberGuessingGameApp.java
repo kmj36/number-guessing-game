@@ -1,3 +1,4 @@
+import java.time.Duration;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -6,6 +7,10 @@ class NumberGuessingGame {
     private int attempts;
     private int guess;
     private int level;
+
+    private long startTime;
+    private long endTime;
+
     private final Scanner sc;
     private static final Random createGuessRandomNum = new Random();
 
@@ -36,7 +41,7 @@ class NumberGuessingGame {
 
         level = sc.nextInt();
         while (level < 1 || level > 3) {
-            System.out.print("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).\n\n");
+            System.out.printf("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).%n%n");
             System.out.print("Enter your choice: ");
             level = sc.nextInt();
         }
@@ -65,7 +70,6 @@ class NumberGuessingGame {
             case 3 -> difficulty = "Hard";
         }
         String Message = """
-                
                 Great! You have selected the %s difficulty level.
                 Let's start the game!
                 
@@ -77,10 +81,12 @@ class NumberGuessingGame {
         GameInitialize();
         StartMessage(level);
 
+        int entered = -1;
+
+        startTime = System.nanoTime();
         while(attempts < chance) {
             attempts++;
 
-            int entered;
             while(true) {
                 System.out.print("Enter your guess: ");
 
@@ -93,15 +99,19 @@ class NumberGuessingGame {
                 }
             }
 
-            if(entered == guess) {
-                System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n", attempts);
+            if(entered == guess)
                 break;
-            } else
-                System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
-        }
 
-        if(attempts == chance)
-            System.out.printf("Game over! You've used all %d attempts. The number was %d.\n\n", chance, guess);
+            System.out.printf("Incorrect! The number is %s than %d.%n%n", entered > guess ? "less" : "greater", entered);
+        }
+        endTime = System.nanoTime();
+
+        if(entered == guess)
+            System.out.printf("Congratulations! You guessed the number in %d attempts.%n", attempts);
+        else
+            System.out.printf("Game over! You've used all %d attempts. The number was %d.%n", chance, guess);
+
+        System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(endTime - startTime).toSeconds());
     }
 }
 
