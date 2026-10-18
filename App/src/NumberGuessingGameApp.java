@@ -9,6 +9,9 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.time.Duration;
+import java.util.Random;
+import java.util.Scanner;
 
 class NumberGuessingGame {
     private int chance;
@@ -31,6 +34,9 @@ class NumberGuessingGame {
             int guess,
             LocalDateTime timestamp
     ) {}
+
+    private long startTime;
+    private long endTime;
 
     private final Scanner sc;
     private static final Random createGuessRandomNum = new Random();
@@ -90,7 +96,7 @@ class NumberGuessingGame {
 
         int setLevel = sc.nextInt();
         while (setLevel < 1 || setLevel > 3) {
-            System.out.print("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).\n\n");
+            System.out.printf("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).%n%n");
             System.out.print("Enter your choice: ");
             setLevel = sc.nextInt();
         }
@@ -143,6 +149,7 @@ class NumberGuessingGame {
         String entered = "";
         int inputNum = -1;
 
+        startTime = System.nanoTime();
         while(attempts < chance) {
             attempts++;
 
@@ -169,9 +176,10 @@ class NumberGuessingGame {
 
             System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
         }
+        endTime = System.nanoTime();
 
         if(inputNum == guess) {
-            System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
+            System.out.printf("Congratulations! You guessed the correct number in %d attempts.%n", attempts);
 
             if (best.attempts == 0 || best.attempts > attempts) {
                 records.put(level, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
@@ -179,7 +187,9 @@ class NumberGuessingGame {
             }
         }
         else
-            System.out.printf("Game over! You've used all %d attempts. The number was %d.\n\n", chance, guess);
+            System.out.printf("Game over! You've used all %d attempts. The number was %d.%n", chance, guess);
+        
+        System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(endTime - startTime).toSeconds());
     }
 }
 
