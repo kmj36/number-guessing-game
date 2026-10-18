@@ -6,8 +6,12 @@ class NumberGuessingGame {
     private int attempts;
     private int guess;
     private int level;
+
     private final Scanner sc;
     private static final Random createGuessRandomNum = new Random();
+
+    private static final int VERY_CLOSE = 5;
+    private static final int CLOSE = 15;
 
     NumberGuessingGame(Scanner sc) {
         WelcomeMessage();
@@ -77,27 +81,35 @@ class NumberGuessingGame {
         GameInitialize();
         StartMessage(level);
 
+        String entered = "";
+        int inputNum = -1;
+
         while(attempts < chance) {
             attempts++;
 
-            int entered;
-            while(true) {
-                System.out.print("Enter your guess: ");
+            System.out.print("Enter your guess (or 'h' for a hint, costs 1 attempt): ");
+            entered = sc.next();
 
-                if(sc.hasNextInt()) {
-                    entered = sc.nextInt();
-                    break;
-                } else {
-                    System.out.println("Invalid Number. Try again.");
-                    sc.next();
-                }
+            if(entered.equalsIgnoreCase("h")) {
+                int diff = Math.abs(guess - inputNum);
+
+                if (diff <= VERY_CLOSE)
+                    System.out.printf("Very Close! (within %d)%n%n", VERY_CLOSE);
+                else if (diff <= CLOSE)
+                    System.out.printf("Close. (within %d)%n%n", CLOSE);
+                else
+                    System.out.printf("Far away. (more than %d off)%n%n", CLOSE);
+
+                continue;
             }
 
-            if(entered == guess) {
+            inputNum = Integer.parseInt(entered);
+
+            if(inputNum == guess) {
                 System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n", attempts);
                 break;
             } else
-                System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
+                System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
         }
 
         if(attempts == chance)
