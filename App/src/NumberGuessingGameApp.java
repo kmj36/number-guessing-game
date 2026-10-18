@@ -80,7 +80,7 @@ class NumberGuessingGame {
 
     public void GameInitialize() {
         String Mesage = """
-                Please select the difficulty setLevel:
+                Please select the difficulty level:
                 1. Easy (10 chances)
                 2. Medium (5 chances)
                 3. Hard (3 chances)
@@ -164,19 +164,21 @@ class NumberGuessingGame {
 
             inputNum = Integer.parseInt(entered);
 
-            if(inputNum == guess) {
-                System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
-
-                if(best.attempts == 0 || best.attempts > attempts) {
-                    records.put(level, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
-                    mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
-                }
+            if(inputNum == guess)
                 break;
-            } else
-                System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
+
+            System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
         }
 
-        if(attempts >= chance)
+        if(inputNum == guess) {
+            System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
+
+            if (best.attempts == 0 || best.attempts > attempts) {
+                records.put(level, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
+                mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
+            }
+        }
+        else
             System.out.printf("Game over! You've used all %d attempts. The number was %d.\n\n", chance, guess);
     }
 }
