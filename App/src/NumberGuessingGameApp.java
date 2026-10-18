@@ -32,11 +32,9 @@ class NumberGuessingGame {
             int chance,
             int attempts,
             int guess,
+            Duration solvingTime,
             LocalDateTime timestamp
     ) {}
-
-    private long startTime;
-    private long endTime;
 
     private final Scanner sc;
     private static final Random createGuessRandomNum = new Random();
@@ -62,9 +60,9 @@ class NumberGuessingGame {
 
         // 파일이 없으면 빈 데이터로 초기화 후 파일까지 생성
         if (!Files.exists(file)) {
-            records.put(Difficulty.EASY, new GameRecord(10, 0, 0, null));
-            records.put(Difficulty.MEDIUM, new GameRecord(5, 0, 0, null));
-            records.put(Difficulty.HARD, new GameRecord(3, 0, 0, null));
+            records.put(Difficulty.EASY, new GameRecord(10, 0, 0, null, null));
+            records.put(Difficulty.MEDIUM, new GameRecord(5, 0, 0, null, null));
+            records.put(Difficulty.HARD, new GameRecord(3, 0, 0, null, null));
 
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
             return;
@@ -127,8 +125,9 @@ class NumberGuessingGame {
     public void StartMessage() {
         String recordLine = best.attempts() == 0
                 ? "No record yet. Set the first one!"
-                : String.format("Best record: %d attempts on %s",
+                : String.format("Best record: %d attempts in %d seconds (%s)",
                 best.attempts(),
+                best.solvingTime.toSeconds(),
                 best.timestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
         String Message = """
@@ -149,7 +148,7 @@ class NumberGuessingGame {
         String entered = "";
         int inputNum = -1;
 
-        startTime = System.nanoTime();
+        long startTime = System.nanoTime();
         while(attempts < chance) {
             attempts++;
 
@@ -176,20 +175,22 @@ class NumberGuessingGame {
 
             System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
         }
-        endTime = System.nanoTime();
+        long endTime = System.nanoTime();
+
+        long durationSeconds = endTime - startTime;
 
         if(inputNum == guess) {
             System.out.printf("Congratulations! You guessed the correct number in %d attempts.%n", attempts);
 
             if (best.attempts == 0 || best.attempts > attempts) {
-                records.put(level, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
+                records.put(level, new GameRecord(chance, attempts, guess, Duration.ofNanos(durationSeconds), LocalDateTime.now()));
                 mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
             }
         }
         else
             System.out.printf("Game over! You've used all %d attempts. The number was %d.%n", chance, guess);
-        
-        System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(endTime - startTime).toSeconds());
+
+        System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(durationSeconds).toSeconds());
     }
 }
 
