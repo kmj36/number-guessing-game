@@ -14,7 +14,7 @@ class NumberGuessingGame {
     private int chance;
     private int attempts;
     private int guess;
-    private int level;
+    private Difficulty level;
 
     private GameRecord best;
     private String levelMessage;
@@ -77,7 +77,7 @@ class NumberGuessingGame {
 
     public void GameInitialize() {
         String Mesage = """
-                Please select the difficulty level:
+                Please select the difficulty setLevel:
                 1. Easy (10 chances)
                 2. Medium (5 chances)
                 3. Hard (3 chances)
@@ -85,31 +85,32 @@ class NumberGuessingGame {
                 Enter your choice:\s""";
         System.out.print(Mesage);
 
-        level = sc.nextInt();
-        while (level < 1 || level > 3) {
+        int setLevel = sc.nextInt();
+        while (setLevel < 1 || setLevel > 3) {
             System.out.print("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).\n\n");
             System.out.print("Enter your choice: ");
-            level = sc.nextInt();
+            setLevel = sc.nextInt();
         }
 
-        switch (level) {
+        switch (setLevel) {
             case 1 -> {
                 chance = 10;
-                best = records.get(Difficulty.EASY);
+                level = Difficulty.EASY;
                 levelMessage = "Easy";
             }
             case 2 -> {
                 chance = 5;
-                best = records.get(Difficulty.MEDIUM);
+                level = Difficulty.MEDIUM;
                 levelMessage = "Medium";
             }
             case 3 -> {
                 chance = 3;
-                best = records.get(Difficulty.HARD);
+                level = Difficulty.HARD;
                 levelMessage = "Hard";
             }
         }
 
+        best = records.get(level);
         attempts = 0;
         guess = createGuessRandomNum.nextInt(100) + 1;
     }
@@ -156,7 +157,7 @@ class NumberGuessingGame {
                 System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
 
                 if(best.attempts == 0 || best.attempts > attempts) {
-                    records.put(Difficulty.EASY, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
+                    records.put(level, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
                     mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
                 }
                 break;
