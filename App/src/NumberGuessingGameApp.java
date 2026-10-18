@@ -42,6 +42,9 @@ class NumberGuessingGame {
     private final ObjectMapper mapper = new ObjectMapper();
     public Map<Difficulty, GameRecord> records = new EnumMap<>(Difficulty.class);
 
+    private static final int VERY_CLOSE = 5;
+    private static final int CLOSE = 15;
+
     NumberGuessingGame(Scanner sc) throws JacksonException, IOException {
         WelcomeMessage();
         this.sc = sc;
@@ -137,23 +140,31 @@ class NumberGuessingGame {
         GameInitialize();
         StartMessage();
 
+        String entered = "";
+        int inputNum = -1;
+
         while(attempts < chance) {
             attempts++;
 
-            int entered;
-            while(true) {
-                System.out.print("Enter your guess: ");
+            System.out.print("Enter your guess (or 'h' for a hint, costs 1 attempt): ");
+            entered = sc.next();
 
-                if(sc.hasNextInt()) {
-                    entered = sc.nextInt();
-                    break;
-                } else {
-                    System.out.println("Invalid Number. Try again.");
-                    sc.next();
-                }
+            if(entered.equalsIgnoreCase("h")) {
+                int diff = Math.abs(guess - inputNum);
+
+                if (diff <= VERY_CLOSE)
+                    System.out.printf("Very Close! (within %d)%n%n", VERY_CLOSE);
+                else if (diff <= CLOSE)
+                    System.out.printf("Close. (within %d)%n%n", CLOSE);
+                else
+                    System.out.printf("Far away. (more than %d off)%n%n", CLOSE);
+
+                continue;
             }
 
-            if(entered == guess) {
+            inputNum = Integer.parseInt(entered);
+
+            if(inputNum == guess) {
                 System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
 
                 if(best.attempts == 0 || best.attempts > attempts) {
@@ -162,7 +173,7 @@ class NumberGuessingGame {
                 }
                 break;
             } else
-                System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
+                System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
         }
 
         if(attempts >= chance)
