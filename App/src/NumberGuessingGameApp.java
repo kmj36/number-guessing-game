@@ -1,17 +1,68 @@
-import java.util.Random;
-import java.util.Scanner;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 class NumberGuessingGame {
     private int chance;
     private int attempts;
     private int guess;
     private int level;
+
+    private GameRecord best;
+    private String levelMessage;
+
+    public enum Difficulty {
+        @JsonProperty("Easy") EASY,
+        @JsonProperty("Medium") MEDIUM,
+        @JsonProperty("Hard") HARD
+    }
+
+    public record GameRecord (
+            int chance,
+            int attempts,
+            int guess,
+            LocalDateTime timestamp
+    ) {}
+
     private final Scanner sc;
     private static final Random createGuessRandomNum = new Random();
 
-    NumberGuessingGame(Scanner sc) {
+    private static final Path saveDir = Path.of("data");
+    private static final Path dataJSON = Path.of("records.json");
+    Path file = Path.of(String.format("%s/%s", saveDir, dataJSON));
+
+    private final ObjectMapper mapper = new ObjectMapper();
+    public Map<Difficulty, GameRecord> records = new EnumMap<>(Difficulty.class);
+
+    NumberGuessingGame(Scanner sc) throws JacksonException, IOException {
         WelcomeMessage();
         this.sc = sc;
+
+        // 디렉터리가 없으면 생성
+        if (!Files.exists(saveDir)) {
+            Files.createDirectories(saveDir);
+        }
+
+        // 파일이 없으면 빈 데이터로 초기화 후 파일까지 생성
+        if (!Files.exists(file)) {
+            records.put(Difficulty.EASY, new GameRecord(10, 0, 0, null));
+            records.put(Difficulty.MEDIUM, new GameRecord(5, 0, 0, null));
+            records.put(Difficulty.HARD, new GameRecord(3, 0, 0, null));
+
+            mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
+            return;
+        }
+
+        String fileData = Files.readString(file);
+        records = mapper.readValue(fileData, new TypeReference<Map<Difficulty, GameRecord>>() {});
     }
 
     public static void WelcomeMessage() {
@@ -44,12 +95,18 @@ class NumberGuessingGame {
         switch (level) {
             case 1 -> {
                 chance = 10;
+                best = records.get(Difficulty.EASY);
+                levelMessage = "Easy";
             }
             case 2 -> {
                 chance = 5;
+                best = records.get(Difficulty.MEDIUM);
+                levelMessage = "Medium";
             }
             case 3 -> {
                 chance = 3;
+                best = records.get(Difficulty.HARD);
+                levelMessage = "Hard";
             }
         }
 
@@ -57,25 +114,27 @@ class NumberGuessingGame {
         guess = createGuessRandomNum.nextInt(100) + 1;
     }
 
-    public static void StartMessage(int level) {
-        String difficulty = "None";
-        switch (level) {
-            case 1 -> difficulty = "Easy";
-            case 2 -> difficulty = "Medium";
-            case 3 -> difficulty = "Hard";
-        }
+    public void StartMessage() {
+        String recordLine = best.attempts() == 0
+                ? "No record yet. Set the first one!"
+                : String.format("Best record: %d attempts on %s",
+                best.attempts(),
+                best.timestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
         String Message = """
+                
+                [%s]
                 
                 Great! You have selected the %s difficulty level.
                 Let's start the game!
                 
                 """;
-        System.out.printf(Message, difficulty);
+        System.out.printf(Message, recordLine, levelMessage);
     }
 
     public void start() {
         GameInitialize();
-        StartMessage(level);
+        StartMessage();
 
         while(attempts < chance) {
             attempts++;
@@ -95,6 +154,12 @@ class NumberGuessingGame {
 
             if(entered == guess) {
                 System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n", attempts);
+
+                if(best.attempts == 0 || best.attempts > attempts) {
+                    records.put(Difficulty.EASY, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
+                    mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
+                }
+
                 break;
             } else
                 System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
@@ -106,7 +171,7 @@ class NumberGuessingGame {
 }
 
 public class NumberGuessingGameApp {
-    static void main(String[] args) {
+    static void main(String[] args) throws IOException {
         Scanner sc = new Scanner(System.in);
         NumberGuessingGame g = new NumberGuessingGame(sc);
 
