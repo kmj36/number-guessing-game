@@ -153,19 +153,18 @@ class NumberGuessingGame {
             }
 
             if(entered == guess) {
-                System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n", attempts);
+                System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n\n", attempts);
 
                 if(best.attempts == 0 || best.attempts > attempts) {
                     records.put(Difficulty.EASY, new GameRecord(chance, attempts, guess, LocalDateTime.now()));
                     mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
                 }
-
                 break;
             } else
                 System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
         }
 
-        if(attempts == chance)
+        if(attempts >= chance)
             System.out.printf("Game over! You've used all %d attempts. The number was %d.\n\n", chance, guess);
     }
 }
@@ -174,8 +173,16 @@ public class NumberGuessingGameApp {
     static void main(String[] args) throws IOException {
         Scanner sc = new Scanner(System.in);
         NumberGuessingGame g = new NumberGuessingGame(sc);
+        boolean restart;
 
         // 게임 시작
-        g.start();
+        do {
+            g.start();
+
+            System.out.print("Would you like to play another round? Enter 'y' to restart or 'n' to quit: ");
+            String wantRestart = sc.next();
+            restart = wantRestart.equalsIgnoreCase("y") || wantRestart.equalsIgnoreCase("yes");
+
+        } while(restart);
     }
 }
