@@ -1,3 +1,14 @@
+import com.fasterxml.jackson.annotation.JsonProperty;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.time.Duration;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -5,13 +16,56 @@ class NumberGuessingGame {
     private int chance;
     private int attempts;
     private int guess;
-    private int level;
-    private final Scanner sc;
+    private Difficulty level;
+
+    private GameRecord best;
+    private String levelMessage;
+
+    public enum Difficulty {
+        @JsonProperty("Easy") EASY,
+        @JsonProperty("Medium") MEDIUM,
+        @JsonProperty("Hard") HARD
+    }
+
+    public record GameRecord (
+            int chance,
+            int attempts,
+            int guess,
+            Duration solvingTime,
+            LocalDateTime timestamp
+    ) {}
+
+    private static final Scanner sc = new Scanner(System.in);
     private static final Random createGuessRandomNum = new Random();
 
-    NumberGuessingGame(Scanner sc) {
+    private final String folderPath = "data";
+    private final String filePath = folderPath + "/records.json";
+
+    private final File folder = new File(folderPath);
+    private final File file = new File(filePath);
+
+    private final ObjectMapper mapper = new ObjectMapper();
+    public Map<Difficulty, GameRecord> records = new EnumMap<>(Difficulty.class);
+
+    private static final int VERY_CLOSE = 5;
+    private static final int CLOSE = 15;
+
+    NumberGuessingGame( ) throws JacksonException, IOException {
         WelcomeMessage();
-        this.sc = sc;
+
+        // 디렉터리, 파일이 없으면 생성
+        if (!folder.exists()) folder.mkdirs();
+        if (!file.exists()) {
+            file.createNewFile();
+
+            records.put(Difficulty.EASY, new GameRecord(10, 0, 0, null, null));
+            records.put(Difficulty.MEDIUM, new GameRecord(5, 0, 0, null, null));
+            records.put(Difficulty.HARD, new GameRecord(3, 0, 0, null, null));
+
+            mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
+        }
+
+        records = mapper.readValue(file, new TypeReference<>() {});
     }
 
     public static void WelcomeMessage() {
@@ -25,92 +79,133 @@ class NumberGuessingGame {
     }
 
     public void GameInitialize() {
-        String Mesage = """
+        String Message = """
                 Please select the difficulty level:
                 1. Easy (10 chances)
                 2. Medium (5 chances)
                 3. Hard (3 chances)
                 
                 Enter your choice:\s""";
-        System.out.print(Mesage);
+        System.out.print(Message);
 
-        level = sc.nextInt();
-        while (level < 1 || level > 3) {
-            System.out.print("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).\n\n");
+        int setLevel = sc.nextInt();
+        while (setLevel < 1 || setLevel > 3) {
+            System.out.printf("Invalid difficulty value. Please enter a value between 1 and 3 (Easy to Hard).%n%n");
             System.out.print("Enter your choice: ");
-            level = sc.nextInt();
+            setLevel = sc.nextInt();
         }
 
-        switch (level) {
+        switch (setLevel) {
             case 1 -> {
                 chance = 10;
+                level = Difficulty.EASY;
+                levelMessage = "Easy";
             }
             case 2 -> {
                 chance = 5;
+                level = Difficulty.MEDIUM;
+                levelMessage = "Medium";
             }
             case 3 -> {
                 chance = 3;
+                level = Difficulty.HARD;
+                levelMessage = "Hard";
             }
         }
 
+        best = records.getOrDefault(level, new GameRecord(0, 0, 0 , null, null));
         attempts = 0;
         guess = createGuessRandomNum.nextInt(100) + 1;
     }
 
-    public static void StartMessage(int level) {
-        String difficulty = "None";
-        switch (level) {
-            case 1 -> difficulty = "Easy";
-            case 2 -> difficulty = "Medium";
-            case 3 -> difficulty = "Hard";
-        }
+    public void StartMessage() {
         String Message = """
+                
+                [%s]
                 
                 Great! You have selected the %s difficulty level.
                 Let's start the game!
                 
                 """;
-        System.out.printf(Message, difficulty);
+
+        String recordLine = best.attempts() == 0
+                ? "No record yet. Set the first one!"
+                : String.format("Best record: %d attempts in %d seconds (%s)",
+                best.attempts(),
+                best.solvingTime.toSeconds(),
+                best.timestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+        System.out.printf(Message, recordLine, levelMessage);
     }
 
     public void start() {
         GameInitialize();
-        StartMessage(level);
+        StartMessage();
 
+        String entered;
+        int inputNum = -1;
+
+        long startTime = System.nanoTime();
         while(attempts < chance) {
             attempts++;
 
-            int entered;
-            while(true) {
-                System.out.print("Enter your guess: ");
+            System.out.print("Enter your guess (or 'h' for a hint, costs 1 attempt): ");
+            entered = sc.next();
 
-                if(sc.hasNextInt()) {
-                    entered = sc.nextInt();
-                    break;
-                } else {
-                    System.out.println("Invalid Number. Try again.");
-                    sc.next();
-                }
+            if(entered.equalsIgnoreCase("h")) {
+                int diff = Math.abs(guess - inputNum);
+
+                if (diff <= VERY_CLOSE)
+                    System.out.printf("Very Close! (within %d)%n%n", VERY_CLOSE);
+                else if (diff <= CLOSE)
+                    System.out.printf("Close. (within %d)%n%n", CLOSE);
+                else
+                    System.out.printf("Far away. (more than %d off)%n%n", CLOSE);
+
+                continue;
             }
 
-            if(entered == guess) {
-                System.out.printf("Congratulations! You guessed the correct number in %d attempts.\n", attempts);
-                break;
-            } else
-                System.out.printf("Incorrect! The number is %s than %d.\n\n", entered > guess ? "less" : "greater", entered);
-        }
+            inputNum = Integer.parseInt(entered);
 
-        if(attempts == chance)
-            System.out.printf("Game over! You've used all %d attempts. The number was %d.\n\n", chance, guess);
+            if(inputNum == guess)
+                break;
+
+            System.out.printf("Incorrect! The number is %s than %d.\n\n", inputNum > guess ? "less" : "greater", inputNum);
+        }
+        long endTime = System.nanoTime();
+
+        long durationSeconds = endTime - startTime;
+
+        if(inputNum == guess) {
+            System.out.printf("Congratulations! You guessed the correct number in %d attempts.%n", attempts);
+
+            if (best.attempts == 0 || best.attempts > attempts || (best.attempts == attempts && best.solvingTime.toNanos() > durationSeconds)) {
+                records.put(level, new GameRecord(chance, attempts, guess, Duration.ofNanos(durationSeconds), LocalDateTime.now()));
+                mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
+            }
+        }
+        else
+            System.out.printf("Game over! You've used all %d attempts. The number was %d.%n", chance, guess);
+
+        System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(durationSeconds).toSeconds());
+    }
+
+    public boolean isRestart() {
+        System.out.print("Would you like to play another round? Enter 'y' to restart or 'n' to quit: ");
+        String wantRestart = sc.next();
+        return wantRestart.equalsIgnoreCase("y") || wantRestart.equalsIgnoreCase("yes");
+    }
+
+    public void run() {
+        do {
+            start();
+        } while (isRestart());
     }
 }
 
 public class NumberGuessingGameApp {
-    static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        NumberGuessingGame g = new NumberGuessingGame(sc);
-
-        // 게임 시작
-        g.start();
+    static void main(String[] args) throws IOException {
+        NumberGuessingGame g = new NumberGuessingGame();
+        g.run();
     }
 }
