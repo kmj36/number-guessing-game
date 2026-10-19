@@ -3,9 +3,8 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -36,12 +35,14 @@ class NumberGuessingGame {
             LocalDateTime timestamp
     ) {}
 
-    private final Scanner sc;
+    private static final Scanner sc = new Scanner(System.in);
     private static final Random createGuessRandomNum = new Random();
 
-    private static final Path saveDir = Path.of("data");
-    private static final Path dataJSON = Path.of("records.json");
-    Path file = Path.of(String.format("%s/%s", saveDir, dataJSON));
+    private final String folderPath = "data";
+    private final String filePath = folderPath + "/records.json";
+
+    private final File folder = new File(folderPath);
+    private final File file = new File(filePath);
 
     private final ObjectMapper mapper = new ObjectMapper();
     public Map<Difficulty, GameRecord> records = new EnumMap<>(Difficulty.class);
@@ -49,27 +50,22 @@ class NumberGuessingGame {
     private static final int VERY_CLOSE = 5;
     private static final int CLOSE = 15;
 
-    NumberGuessingGame(Scanner sc) throws JacksonException, IOException {
+    NumberGuessingGame( ) throws JacksonException, IOException {
         WelcomeMessage();
-        this.sc = sc;
 
-        // 디렉터리가 없으면 생성
-        if (!Files.exists(saveDir)) {
-            Files.createDirectories(saveDir);
-        }
+        // 디렉터리, 파일이 없으면 생성
+        if (!folder.exists()) folder.mkdirs();
+        if (!file.exists()) {
+            file.createNewFile();
 
-        // 파일이 없으면 빈 데이터로 초기화 후 파일까지 생성
-        if (!Files.exists(file)) {
             records.put(Difficulty.EASY, new GameRecord(10, 0, 0, null, null));
             records.put(Difficulty.MEDIUM, new GameRecord(5, 0, 0, null, null));
             records.put(Difficulty.HARD, new GameRecord(3, 0, 0, null, null));
 
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
-            return;
         }
 
-        String fileData = Files.readString(file);
-        records = mapper.readValue(fileData, new TypeReference<Map<Difficulty, GameRecord>>() {});
+        records = mapper.readValue(file, new TypeReference<>() {});
     }
 
     public static void WelcomeMessage() {
@@ -83,14 +79,14 @@ class NumberGuessingGame {
     }
 
     public void GameInitialize() {
-        String Mesage = """
+        String Message = """
                 Please select the difficulty level:
                 1. Easy (10 chances)
                 2. Medium (5 chances)
                 3. Hard (3 chances)
                 
                 Enter your choice:\s""";
-        System.out.print(Mesage);
+        System.out.print(Message);
 
         int setLevel = sc.nextInt();
         while (setLevel < 1 || setLevel > 3) {
@@ -117,19 +113,12 @@ class NumberGuessingGame {
             }
         }
 
-        best = records.get(level);
+        best = records.getOrDefault(level, new GameRecord(0, 0, 0 , null, null));
         attempts = 0;
         guess = createGuessRandomNum.nextInt(100) + 1;
     }
 
     public void StartMessage() {
-        String recordLine = best.attempts() == 0
-                ? "No record yet. Set the first one!"
-                : String.format("Best record: %d attempts in %d seconds (%s)",
-                best.attempts(),
-                best.solvingTime.toSeconds(),
-                best.timestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-
         String Message = """
                 
                 [%s]
@@ -138,6 +127,14 @@ class NumberGuessingGame {
                 Let's start the game!
                 
                 """;
+
+        String recordLine = best.attempts() == 0
+                ? "No record yet. Set the first one!"
+                : String.format("Best record: %d attempts in %d seconds (%s)",
+                best.attempts(),
+                best.solvingTime.toSeconds(),
+                best.timestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
         System.out.printf(Message, recordLine, levelMessage);
     }
 
@@ -145,7 +142,7 @@ class NumberGuessingGame {
         GameInitialize();
         StartMessage();
 
-        String entered = "";
+        String entered;
         int inputNum = -1;
 
         long startTime = System.nanoTime();
@@ -182,7 +179,7 @@ class NumberGuessingGame {
         if(inputNum == guess) {
             System.out.printf("Congratulations! You guessed the correct number in %d attempts.%n", attempts);
 
-            if (best.attempts == 0 || best.attempts > attempts) {
+            if (best.attempts == 0 || best.attempts > attempts || (best.attempts == attempts && best.solvingTime.toNanos() > durationSeconds)) {
                 records.put(level, new GameRecord(chance, attempts, guess, Duration.ofNanos(durationSeconds), LocalDateTime.now()));
                 mapper.writerWithDefaultPrettyPrinter().writeValue(file, records);
             }
@@ -192,22 +189,23 @@ class NumberGuessingGame {
 
         System.out.printf("Time played: %d seconds%n%n", Duration.ofNanos(durationSeconds).toSeconds());
     }
+
+    public boolean isRestart() {
+        System.out.print("Would you like to play another round? Enter 'y' to restart or 'n' to quit: ");
+        String wantRestart = sc.next();
+        return wantRestart.equalsIgnoreCase("y") || wantRestart.equalsIgnoreCase("yes");
+    }
+
+    public void run() {
+        do {
+            start();
+        } while (isRestart());
+    }
 }
 
 public class NumberGuessingGameApp {
     static void main(String[] args) throws IOException {
-        Scanner sc = new Scanner(System.in);
-        NumberGuessingGame g = new NumberGuessingGame(sc);
-        boolean restart;
-
-        // 게임 시작
-        do {
-            g.start();
-
-            System.out.print("Would you like to play another round? Enter 'y' to restart or 'n' to quit: ");
-            String wantRestart = sc.next();
-            restart = wantRestart.equalsIgnoreCase("y") || wantRestart.equalsIgnoreCase("yes");
-
-        } while(restart);
+        NumberGuessingGame g = new NumberGuessingGame();
+        g.run();
     }
 }
